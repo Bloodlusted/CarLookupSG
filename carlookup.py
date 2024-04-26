@@ -6,14 +6,45 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
+#Checksum to determine if plate is valid
+def checksum(vehicle_plate):
+    vehicle_plate = vehicle_plate.strip().upper()
+    
+    if len(vehicle_plate) > 7:
+        return "INVALID INPUT"
+    
+    if len(re.findall(r'[A-Z]{1,3}', vehicle_plate)) > 1:
+        return "INVALID INPUT"
+    
+    prefix = re.match(r'^[A-Z]{1,3}', vehicle_plate).group(0)
+    if len(prefix) != 2:
+        prefix = prefix[1:] if len(prefix) == 3 else prefix
+    
+    prefix_values = [ord(char) - 64 for char in prefix]
+    if len(prefix_values) != 2:
+        prefix_values.insert(0, 0)
+    
+    number_part = re.search(r'[0-9]{1,4}', vehicle_plate).group(0)
+    number_part = number_part.zfill(4)
+    number_values = [int(char) for char in number_part]
+    
+    combined_values = prefix_values + number_values
+    
+    checksum_multipliers = [9, 4, 5, 4, 3, 2]
+    checksum_value = sum(value * multiplier for value, multiplier in zip(combined_values, checksum_multipliers)) % 19
+    
+    return vehicle_plate + "AZYXUTSRPMLKJHGEDCB"[checksum_value]
+
+#Ensure clean user input
 def input_validation(plate_number):
-    pattern = r'^[A-Z]{1,3}\d{1,4}[A-Z]$'
+    pattern = r'^[A-Z]{1,3}\d{1,4}[A-Z]?$'
     
     if re.match(pattern, plate_number):
         return True
     else:
         return False
 
+#Scrape vehicle info
 def lookup(vehicle_number):
     # Set up Selenium WebDriver in headless mode
     chrome_options = Options()
@@ -21,15 +52,15 @@ def lookup(vehicle_number):
     driver = webdriver.Chrome(options=chrome_options)
     driver.get("https://vrl.lta.gov.sg/lta/vrl/action/pubfunc?ID=EnquireRoadTaxExpDtProxy")
 
-    # Find and fill in the vehicle number input field
+    # Fill in the vehicle number input field
     vehicle_input = driver.find_element(By.NAME, "vehicleNo")
     vehicle_input.send_keys(vehicle_number)
 
-    # Find and click the "I agree" checkbox
+    # Click the "I agree" checkbox
     agree_checkbox = driver.find_element(By.NAME, "agreeTC")
     agree_checkbox.click()
 
-    # Find and click the "Next" button
+    # Click the "Next" button
     next_button = driver.find_element(By.ID, "btnNext")
     next_button.click()
 
@@ -51,8 +82,17 @@ def lookup(vehicle_number):
 
     driver.quit()
 
+
 query = input("Enter the vehicle plate number: ")
 if input_validation(query) == False:
     print("Error: Please input a valid license plate")
 else:
-    lookup(query)
+    if query[-1].isnumeric():
+        valid_plate = checksum(query)
+    else:
+        valid_plate = checksum(query[:-1])
+    if query != valid_plate:
+        print("Invalid license plate, looking up " + valid_plate + " instead.")
+        lookup(valid_plate)
+    else:
+        lookup(query)

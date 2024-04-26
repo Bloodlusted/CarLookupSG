@@ -15,4 +15,8 @@ Then, just run the program and enter the license plate of the vehicle you want t
 
 ![Image](https://i.imgur.com/VEp5UhN.png)
 
+The program also calculates the vehicle plate checksum to determine if it's a valid plate.
+
+![Image](https://i.imgur.com/1YeWbD0.png)
+
 *Note: This is a very early WIP and I will be improving it. The end goal is to deploy a web app.*
